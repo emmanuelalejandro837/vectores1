@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador de Vectores</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  background: #111827;
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  padding: 20px;
+}
+canvas {
+  width: min(90vw, 600px);
+  height: auto;
+  background: white;
+  border: 4px solid white;
+  border-radius: 12px;
+}
+.controles { margin: 20px auto; }
+input {
+  width: 95px;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  margin: 5px;
+}
+button {
+  padding: 12px 18px;
+  margin: 5px;
+  border: none;
+  border-radius: 6px;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+}
+button:hover { background: #1d4ed8; }
+#estado { color: #93c5fd; }
+</style>
+</head>
+<body>
+
+<h1>🌍 Campo de Vectores</h1>
+<p>Introduce un desplazamiento (X, Y).</p>
+
+<canvas id="campo" width="600" height="600"></canvas>
+
+<div class="controles">
+  <input type="number" id="vx" value="100">
+  <input type="number" id="vy" value="50">
+  <button onclick="mover()">Mover</button>
+  <button onclick="reiniciar()">Reiniciar</button>
+</div>
+
+<p id="estado">Posición: (0, 0)</p>
+
+<script>
+const canvas = document.getElementById("campo");
+const ctx = canvas.getContext("2d");
+
+const escala = 2;
+let posicion = { x: 0, y: 0 };
+let inicio = { x: 0, y: 0 };
+let destino = { x: 0, y: 0 };
+let recorrido = [];
+let animando = false;
+let comienzo = 0;
+const duracion = 700;
+
+function pantalla(p) {
+  return {
+    x: 300 + p.x * escala,
+    y: 300 - p.y * escala
+  };
+}
+
+function dibujar() {
+  ctx.clearRect(0, 0, 600, 600);
+
+  const zonas = [
+    [0, 0, "#91c788", "🌳 Bosque"],
+    [300, 0, "#e8c579", "🏜️ Desierto"],
+    [0, 300, "#b5e0f2", "❄️ Nieve"],
+    [300, 300, "#b89a91", "🌋 Volcán"]
+  ];
+
+  zonas.forEach(([x,y,color,nombre]) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x,y,300,300);
+    ctx.fillStyle = "#263238";
+    ctx.font = "bold 19px Arial";
+    ctx.fillText(nombre,x+20,y+35);
+  });
+
+  // Cuadrícula
+  ctx.strokeStyle = "#0002";
+  ctx.lineWidth = 1;
+  for(let i=0;i<=600;i+=40) {
+    ctx.beginPath();
+    ctx.moveTo(i,0);
+    ctx.lineTo(i,600);
+    ctx.moveTo(0,i);
+    ctx.lineTo(600,i);
+    ctx.stroke();
+  }
+
+  // Ejes
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(300,0);
+  ctx.lineTo(300,600);
+  ctx.moveTo(0,300);
+  ctx.lineTo(600,300);
+  ctx.stroke();
+
+  // Vectores anteriores
+  recorrido.forEach(segmento => {
+    flecha(segmento.a,segmento.b);
+  });
+
+  // Bolita
+  const p = pantalla(posicion);
+  ctx.beginPath();
+  ctx.arc(p.x,p.y,12,0,Math.PI*2);
+  ctx.fillStyle = "#2563eb";
+  ctx.fill();
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+function flecha(a,b) {
+  const p1 = pantalla(a);
+  const p2 = pantalla(b);
+  const angulo = Math.atan2(
+    p2.y-p1.y,p2.x-p1.x
+  );
+
+  ctx.strokeStyle = "#1d4ed8";
+  ctx.fillStyle = "#1d4ed8";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(p1.x,p1.y);
+  ctx.lineTo(p2.x,p2.y);
+  ctx.stroke();
+
+  if(Math.hypot(p2.x-p1.x,p2.y-p1.y)<1) return;
+
+  ctx.beginPath();
+  ctx.moveTo(p2.x,p2.y);
+  ctx.lineTo(
+    p2.x-12*Math.cos(angulo-0.5),
+    p2.y-12*Math.sin(angulo-0.5)
+  );
+  ctx.lineTo(
+    p2.x-12*Math.cos(angulo+0.5),
+    p2.y-12*Math.sin(angulo+0.5)
+  );
+  ctx.closePath();
+  ctx.fill();
+}
+
+function mover() {
+  if(animando) return;
+
+  const x = Number(document.getElementById("vx").value);
+  const y = Number(document.getElementById("vy").value);
+
+  if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+  const nuevo = {
+    x: posicion.x+x,
+    y: posicion.y+y
+  };
+
+  if(Math.abs(nuevo.x)>145 || Math.abs(nuevo.y)>145) {
+    alert("El vector sale del campo.");
+    return;
+  }
+
+  inicio = {...posicion};
+  destino = nuevo;
+  animando = true;
+  comienzo = performance.now();
+  requestAnimationFrame(animar);
+}
+
+function animar(tiempo) {
+  const t = Math.min((tiempo-comienzo)/duracion,1);
+  const suave = t*t*(3-2*t);
+
+  posicion.x = inicio.x+(destino.x-inicio.x)*suave;
+  posicion.y = inicio.y+(destino.y-inicio.y)*suave;
+
+  dibujar();
+  document.getElementById("estado").textContent =
+    `Posición: (${posicion.x.toFixed(1)}, ${posicion.y.toFixed(1)})`;
+
+  if(t<1) {
+    requestAnimationFrame(animar);
+  } else {
+    posicion = {...destino};
+    recorrido.push({a:{...inicio},b:{...destino}});
+    animando = false;
+    dibujar();
+  }
+}
+
+function reiniciar() {
+  if(animando) return;
+  posicion = {x:0,y:0};
+  recorrido = [];
+  document.getElementById("estado").textContent =
+    "Posición: (0, 0)";
+  dibujar();
+}
+
+dibujar();
+</script>
+</body>
+</html>
